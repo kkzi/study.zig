@@ -1,13 +1,1 @@
 /.vscode
-/build
-/CMakeLists.txt
-/demo.exe
-/demo.go
-/demo.h
-/demo.ilk
-/demo.obj
-/demo.pdb
-/hello.zig
-/test.go
-/test.txt
-/vc140.pdb
