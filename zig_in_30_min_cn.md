@@ -1,7 +1,14 @@
 
-[原文链接](https://gist.github.com/ityonemo/769532c2017ed9143f3571e5ac104e50)
-
 # 30分钟入门Zig
+
+[原文链接](https://gist.github.com/ityonemo/769532c2017ed9143f3571e5ac104e50)  
+非直译； 
+原文中的示例基于0.7.1, 翻译时最新版本为0.11.0-dev，有些示例做了对应适配
+
+*以下正文开始*
+______
+
+
 
 本文受到[30分钟入门Rust](https://fasterthanli.me/blog/2020/a-half-hour-to-learn-rust/)启发
 
