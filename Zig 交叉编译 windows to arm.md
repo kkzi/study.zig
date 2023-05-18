@@ -11,7 +11,7 @@ zig build-exe -target aarch64-linux -O ReleaseSmall test.zig
 zig c++ -std=c++20 test.cpp -target aarch64-linux -o a
 ```
 
-有些modern c++特性不支持，比如format https://clang.llvm.org/cxx\_status.html
+有些modern c++特性不支持（可通过 `zig cc --version` 查看），比如 format https://clang.llvm.org/cxx\_status.html
 
 ## 使用build.zig编译到arm
 
@@ -100,7 +100,7 @@ zig-toolchain.cmake
 
 ## 参考
 
-*   https://gitlab.kitware.com/mrexodia/cmake-zig 
+*   https://gitlab.kitware.com/mrexodia/cmake-zig
 *   https://github.com/mrexodia/zig-cross
 *   https://zig.news/xq/zig-build-explained-part-1-59lf
 *   https://zig.news/xq/zig-build-explained-part-2-1850
