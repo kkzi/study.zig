@@ -417,6 +417,33 @@ pub fn main() void {
 }
 ```
 
+`for 快速循环`
+```zig
+const std = @import("std");
+
+pub fn main() !void {
+    for (0..4) |n| {
+        std.debug.print("{} ", .{n});
+    }
+}
+```
+
+`for` 迭代多个数组
+```zig
+const std = @import("std");
+
+pub fn main() !void {
+    var elems = [_][]const u8{ "water", "earth", "fire", "wind" };
+    var nats = [_][]const u8{ "tribes", "kingdom", "nation", "nomads" };
+    std.debug.assert(elems.len == nats.len);
+
+    for (elems, nats) |e, n| {
+        std.debug.print("{s} {s}\n", .{ e, n });
+    }
+}
+```
+
+
 `while` 很正常：
 ```zig
 const std = @import("std");
