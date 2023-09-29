@@ -12,15 +12,17 @@ const STI_DATA_FLOW_OFFSET: i32 = 5;
 const ServerConfig = struct {
     tm_port: u16,
     time_port: u16,
-    input_file: std.fs.File,
+    input_file: []const u8,
     frame_len: u16,
+    fps: u32,
 
     fn init(filepath: []const u8) !ServerConfig {
         return ServerConfig{
             .tm_port = 3070,
             .time_port = 3071,
-            .input_file = try std.fs.cwd().openFile(filepath, .{ .mode = std.fs.File.OpenMode.read_only }),
-            .frame_len = 512,
+            .input_file = filepath,
+            .frame_len = 263,
+            .fps = 2,
         };
     }
 };
@@ -33,7 +35,6 @@ const Channel = struct {
     conn_thread: std.Thread,
 
     interrupted: Atomic(bool),
-    tm_thread: ?std.Thread,
 
     fn init(index: usize, conn: net.StreamServer.Connection, conn_thread: std.Thread) Channel {
         return Channel{
@@ -41,15 +42,12 @@ const Channel = struct {
             .conn = conn,
             .conn_thread = conn_thread,
             .interrupted = Atomic(bool).init(false),
-            .tm_thread = null,
         };
     }
 
     fn deinit(self: *Channel) void {
         self.interrupted.storeUnchecked(true);
-        if (self.tm_thread) |t| {
-            t.join();
-        }
+        self.conn_thread.join();
         self.* = undefined;
     }
 };
@@ -63,23 +61,43 @@ fn close_channel(chan: *Channel) void {
     _ = channels.remove(index);
 }
 
-fn start_tm_channel(chan: *Channel) void {
+fn start_tm_channel(chan: *Channel) !void {
     log.info("start tm data flow", .{});
-    while (!chan.interrupted.loadUnchecked()) {}
+    // while (!chan.interrupted.loadUnchecked()) {
+    var file = try std.fs.openFileAbsolute(server_config.input_file, .{});
+    defer file.close();
+    var buf: [2048]u8 = undefined;
+    var count: i64 = 0;
+    var t0 = std.time.microTimestamp();
+    var last = t0;
+    const gap: u32 = std.time.us_per_s / server_config.fps;
+
+    while (!chan.interrupted.loadUnchecked()) {
+        const now = std.time.microTimestamp();
+        if (now - last < gap) continue;
+        last = now;
+
+        var n = try file.read(buf[0..server_config.frame_len]);
+        _ = try chan.conn.stream.write(buf[0..n]);
+        count += 1;
+    }
+
+    log.info("fps = {}", .{@divExact(count * std.time.us_per_s, last - t0)});
 }
 
-fn handle_data_flow(index: usize, data_flow: i32) void {
+fn handle_data_flow(index: usize, data_flow: i32) !void {
     mutex.lock();
     defer mutex.unlock();
 
     var chan = channels.getPtr(index).?;
     switch (data_flow) {
         0, 1, 2, 4, 5, 6 => {
-            if (std.Thread.spawn(.{}, start_tm_channel, .{chan})) |t| {
-                chan.tm_thread = t;
-            } else |e| {
-                log.err("{}", .{e});
-            }
+            try start_tm_channel(chan);
+            // if (std.Thread.spawn(.{}, start_tm_channel, .{chan})) |t| {
+            //     chan.tm_thread = t;
+            // } else |e| {
+            //     log.err("{}", .{e});
+            // }
         },
         0x80 => {
             log.info("stop tm data flow", .{});
@@ -92,7 +110,7 @@ fn handle_data_flow(index: usize, data_flow: i32) void {
     }
 }
 
-fn handle_client_connection(index: usize, conn: net.StreamServer.Connection) void {
+fn handle_client_connection(index: usize, conn: net.StreamServer.Connection) !void {
     log.info("new connection from {}", .{conn.address});
     var buffer: [1024]u8 = undefined;
     while (true) {
@@ -104,9 +122,10 @@ fn handle_client_connection(index: usize, conn: net.StreamServer.Connection) voi
             if (head != STI_HEAD) break;
 
             const data_flow = mem.readIntSliceBig(i32, buffer[STI_DATA_FLOW_OFFSET * 4 .. (STI_DATA_FLOW_OFFSET + 1) * 4]);
-            handle_data_flow(index, data_flow);
+            try handle_data_flow(index, data_flow) ;
             log.info("received data flow {X} from {}", .{ data_flow, conn.address });
-        } else |_| {
+        } else |e| {
+            log.err("connection lost {}", .{e});
             break;
         }
     }
@@ -124,7 +143,7 @@ fn handle_client_connection(index: usize, conn: net.StreamServer.Connection) voi
 }
 
 pub fn main() !void {
-    const filepath = "input.dat";
+    const filepath = "C:/Users/kizi/desktop/input.dat";
     if (ServerConfig.init(filepath)) |cfg| {
         server_config = cfg;
     } else |e| {
@@ -148,8 +167,8 @@ pub fn main() !void {
             mutex.lock();
             defer mutex.unlock();
             try channels.put(client_index, Channel.init(client_index, conn, t));
-        } else |e| {
-            log.err("{}", .{e});
+        } else |_| {
+            log.err("error", .{});
         }
     }
 }
